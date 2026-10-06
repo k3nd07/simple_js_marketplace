@@ -1,0 +1,67 @@
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bazar — маркетплейс</title>
+<style>
+:root{--bg:#eef2f6;--card:#fff;--ink:#14213d;--mut:#667085;--acc:#2b59ff;--hi:#ffd23f;--line:#dbe2ea}
+@media(prefers-color-scheme:dark){:root{--bg:#0d1320;--card:#161f31;--ink:#e9eef7;--mut:#8b98ad;--line:#26324a}}
+*{box-sizing:border-box}body{margin:0;font:15px/1.4 "Trebuchet MS",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{position:sticky;top:0;z-index:5;background:var(--ink);color:#fff;display:flex;gap:14px;align-items:center;padding:12px 20px}
+header h1{margin:0;font:800 24px Georgia,serif;letter-spacing:-.5px}header h1 b{color:var(--hi)}
+header input{flex:1;padding:10px 14px;border-radius:8px;border:0;font:inherit}
+button{font:inherit;cursor:pointer;border:0;border-radius:8px;padding:9px 14px;background:var(--acc);color:#fff}
+button.y{background:var(--hi);color:#14213d;font-weight:700}button.g{background:none;color:var(--mut);border:1px solid var(--line)}
+.bar{max-width:1200px;margin:16px auto;padding:0 20px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{background:var(--card);color:var(--ink);border:1px solid var(--line)}.chip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
+select{padding:9px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);margin-left:auto}
+.grid{max-width:1200px;margin:0 auto;padding:0 20px 40px;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px}
+.p{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;display:flex;flex-direction:column}
+.p .img{height:140px;display:grid;place-items:center;font-size:64px;background:var(--c)}
+.p .b{padding:12px;display:flex;flex-direction:column;gap:4px;flex:1}.p h3{margin:0;font-size:16px}.p small{color:var(--mut)}
+.p .f{margin-top:auto;display:flex;justify-content:space-between;align-items:center;padding-top:8px}.price{font-weight:800;font-size:18px}
+.drawer{position:fixed;top:0;right:0;height:100%;width:min(380px,100%);background:var(--card);border-left:1px solid var(--line);transform:translateX(100%);transition:transform .25s;z-index:10;display:flex;flex-direction:column;padding:16px}
+.drawer.open{transform:none}.items{flex:1;overflow:auto}.it{display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--line)}.it span:nth-child(2){flex:1}
+.it button{padding:2px 9px}.modal{position:fixed;inset:0;background:#0008;display:none;place-items:center;z-index:20}.modal.open{display:grid}
+.modal form{background:var(--card);padding:20px;border-radius:12px;display:grid;gap:10px;width:min(360px,92%)}
+.modal input,.modal select{padding:10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);margin:0;font:inherit}
+#toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;opacity:0;transition:.3s;z-index:30;pointer-events:none}#toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<header><h1>Ba<b>zar</b></h1><input id="q" placeholder="Найти товар или продавца" aria-label="Поиск"><button class="g" style="color:#fff;border-color:#fff4" onclick="openSell()">Продать</button><button class="y" onclick="toggleCart(1)">Корзина (<span id="cnt">0</span>)</button></header>
+<div class="bar" id="chips"></div>
+<div class="grid" id="grid"></div>
+<aside class="drawer" id="cart" aria-label="Корзина"><div style="display:flex;justify-content:space-between"><h2 style="margin:0">Корзина</h2><button class="g" onclick="toggleCart(0)">Закрыть</button></div>
+<div class="items" id="items"></div><div style="font-size:20px;font-weight:800;margin:10px 0">Итого: <span id="total"></span></div><button class="y" onclick="checkout()">Оформить заказ</button></aside>
+<div class="modal" id="sell"><form onsubmit="sell(event)"><h3 style="margin:0">Новый товар</h3><input id="sn" placeholder="Название" required><input id="sp" type="number" min="1" placeholder="Цена, $" required>
+<select id="sc"></select><input id="ss" placeholder="Ваше имя / магазин" required><div style="display:flex;gap:8px"><button>Выставить</button><button type="button" class="g" onclick="sell0.classList.remove('open')">Отмена</button></div></form></div>
+<div id="toast"></div>
+<script>
+const $=s=>document.querySelector(s),sell0=$("#sell");
+const CATS=["Электроника","Дом","Одежда","Спорт","Книги"],EMO={Электроника:["🎧","⌚","📷","⌨️"],Дом:["🛋️","💡","☕","🪴"],Одежда:["🧥","👟","🧢","🎒"],Спорт:["🚲","🏀","🧘","⛺"],Книги:["📘","📙","🗺️","✒️"]};
+const COL=["#dfe8ff","#fff1c2","#e0f5e9","#ffe0e0","#ece2ff"];
+const save=(k,v)=>{try{localStorage[k]=JSON.stringify(v)}catch{}},load=(k,d)=>{try{return JSON.parse(localStorage[k])||d}catch{return d}};
+const seed=[["Наушники Aero",89,"Электроника","SoundLab",4.7],["Умные часы Pulse",129,"Электроника","TechHub",4.4],["Мини-камера Lumo",210,"Электроника","PhotoBay",4.8],["Клавиатура Tactile",75,"Электроника","KeyForge",4.6],
+["Диван Nordic",540,"Дом","HomeNest",4.5],["Лампа Arc",45,"Дом","Lumen",4.3],["Кофеварка Brew",99,"Дом","HomeNest",4.6],["Фикус в горшке",25,"Дом","GreenCorner",4.9],
+["Куртка Alpine",160,"Одежда","UrbanWear",4.4],["Кроссовки Stride",95,"Одежда","RunShop",4.7],["Кепка Classic",19,"Одежда","UrbanWear",4.1],["Рюкзак Trail",70,"Одежда","RunShop",4.6],
+["Велосипед City",420,"Спорт","BikeWorld",4.5],["Мяч Pro",30,"Спорт","SportMax",4.2],["Коврик для йоги",28,"Спорт","ZenStore",4.8],["Палатка 2-местная",150,"Спорт","CampPro",4.5],
+["Роман «Дорога»",12,"Книги","BookNook",4.7],["Учебник Python",35,"Книги","BookNook",4.9],["Атлас мира",40,"Книги","MapHouse",4.6],["Перьевая ручка",22,"Книги","PenCraft",4.3]];
+let products=load("bz_p",null)||seed.map((s,i)=>({id:i+1,name:s[0],price:s[1],cat:s[2],seller:s[3],rating:s[4],emoji:EMO[s[2]][i%4]}));
+let cart=load("bz_c",{}),cat="Все";
+function render(){
+ const q=$("#q").value.toLowerCase(),s=($("#sort")||{}).value||"r";
+ let l=products.filter(p=>(cat=="Все"||p.cat==cat)&&(p.name+p.seller).toLowerCase().includes(q));
+ l.sort(s=="p+"?(a,b)=>a.price-b.price:s=="p-"?(a,b)=>b.price-a.price:(a,b)=>b.rating-a.rating);
+ $("#grid").innerHTML=l.map(p=>`<div class="p"><div class="img" style="--c:${COL[CATS.indexOf(p.cat)]}">${p.emoji}</div><div class="b"><h3>${esc(p.name)}</h3><small>${esc(p.seller)} · ★ ${p.rating}</small><div class="f"><span class="price">$${p.price}</span><button onclick="add(${p.id})">В корзину</button></div></div></div>`).join("")||"<p>Ничего не найдено — попробуйте другой запрос.</p>";
+ $("#chips").innerHTML=["Все",...CATS].map(c=>`<button class="chip ${c==cat?"on":""}" onclick="cat='${c}';render()">${c}</button>`).join("")+`<select id="sort" onchange="render()"><option value="r">По рейтингу</option><option value="p+">Дешевле</option><option value="p-">Дороже</option></select>`;
+ $("#sort").value=s;renderCart()}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function add(id){cart[id]=(cart[id]||0)+1;save("bz_c",cart);toast("Добавлено в корзину");renderCart()}
+function chg(id,d){cart[id]=(cart[id]||0)+d;if(cart[id]<=0)delete cart[id];save("bz_c",cart);renderCart()}
+function renderCart(){let t=0,n=0;$("#items").innerHTML=Object.entries(cart).map(([id,q])=>{const p=products.find(x=>x.id==id);if(!p)return"";t+=p.price*q;n+=q;
+ return`<div class="it"><span>${p.emoji}</span><span>${esc(p.name)}<br><small>$${p.price}</small></span><button class="g" onclick="chg(${id},-1)">−</button>${q}<button class="g" onclick="chg(${id},1)">+</button></div>`}).join("")||"<p>Корзина пуста. Добавьте товары из каталога.</p>";
+ $("#total").textContent="$"+t.toFixed(2);$("#cnt").textContent=n}
+function toggleCart(o){$("#cart").classList.toggle("open",!!o)}
+function checkout(){if(!Object.keys(cart).length)return toast("Корзина пуста");const o=load("bz_o",[]);o.push({at:new Date().toISOString(),cart});save("bz_o",o);cart={};save("bz_c",cart);renderCart();toggleCart(0);toast("Заказ #"+o.length+" оформлен!")}
+function openSell(){$("#sc").innerHTML=CATS.map(c=>`<option>${c}</option>`).join("");sell0.classList.add("open")}
+function sell(e){e.preventDefault();const c=$("#sc").value;products.unshift({id:Date.now(),name:$("#sn").value,price:+$("#sp").value,cat:c,seller:$("#ss").value,rating:5,emoji:EMO[c][0]});save("bz_p",products);sell0.classList.remove("open");e.target.reset();render();toast("Товар опубликован")}
+function toast(m){const t=$("#toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove("on"),1800)}
+$("#q").oninput=render;render();
+</script></body></html>
